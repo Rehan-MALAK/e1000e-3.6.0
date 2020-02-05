@@ -289,7 +289,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 
 	ret_val = hw->phy.ops.acquire(hw);
 	if (ret_val) {
-		e_dbg("Failed to initialize PHY flow\n");
+		e_err("Failed to initialize PHY flow (%d)\n", ret_val);
 		goto out;
 	}
 
@@ -329,7 +329,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 			break;
 
 		if (hw->phy.ops.check_reset_block(hw)) {
-			e_dbg("Required LANPHYPC toggle blocked by ME\n");
+			e_err("Required LANPHYPC toggle blocked by ME\n");
 			ret_val = -E1000_ERR_PHY;
 			break;
 		}
@@ -363,6 +363,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 		/* Check to see if able to reset PHY.  Print error if not */
 		if (hw->phy.ops.check_reset_block(hw)) {
 			e_err("Reset blocked by ME\n");
+			ret_val = -E1000_BLK_PHY_RESET;
 			goto out;
 		}
 
@@ -372,13 +373,15 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 		 * because we haven't determined the PHY type yet.
 		 */
 		ret_val = e1000e_phy_hw_reset_generic(hw);
-		if (ret_val)
+		if (ret_val) {
+			e_err("e1000e_phy_hw_reset_generic failed with %d\n", ret_val);
 			goto out;
+		}
 
 		/* On a successful reset, possibly need to wait for the PHY
 		 * to quiesce to an accessible state before returning control
 		 * to the calling function.  If the PHY does not quiesce, then
-		 * return E1000E_BLK_PHY_RESET, as this is the condition that
+		 * return E1000_BLK_PHY_RESET, as this is the condition that
 		 *  the PHY is in.
 		 */
 		ret_val = hw->phy.ops.check_reset_block(hw);
@@ -406,6 +409,7 @@ out:
 static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
 {
 	struct e1000_phy_info *phy = &hw->phy;
+	struct e1000_adapter *adapter = hw->adapter;
 	s32 ret_val;
 
 	phy->addr = 1;
@@ -427,15 +431,19 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
 	phy->id = e1000_phy_unknown;
 
 	ret_val = e1000_init_phy_workarounds_pchlan(hw);
-	if (ret_val)
+	if (ret_val) {
+		e_err("%s: e1000_init_phy_workarounds_pchlan returned %d\n", __func__, ret_val);
 		return ret_val;
+	}
 
 	if (phy->id == e1000_phy_unknown)
 		switch (hw->mac.type) {
 		default:
 			ret_val = e1000e_get_phy_id(hw);
-			if (ret_val)
+			if (ret_val) {
+				e_err("%s: e1000e_get_phy_id returned %d\n", __func__, ret_val);
 				return ret_val;
+			}
 			if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
 				break;
 			/* fall-through */
@@ -447,11 +455,15 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
 			 * set slow mode and try to get the PHY id again.
 			 */
 			ret_val = e1000_set_mdio_slow_mode_hv(hw);
-			if (ret_val)
+			if (ret_val) {
+				e_err("%s: e1000_set_mdio_slow_mode returned %d\n", __func__, ret_val);
 				return ret_val;
+			}
 			ret_val = e1000e_get_phy_id(hw);
-			if (ret_val)
+			if (ret_val) {
+				e_err("%s: e1000e_get_phy_id (2) returned %d\n", __func__, ret_val);
 				return ret_val;
+			}
 			break;
 		}
 	phy->type = e1000e_get_phy_type_from_id(phy->id);
@@ -475,6 +487,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
 		break;
 	default:
 		ret_val = -E1000_ERR_PHY;
+		e_err("%s: return %d for phy->type %d\n", __func__, ret_val, phy->type);
 		break;
 	}
 
@@ -1656,12 +1669,16 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
 	s32 rc;
 
 	rc = e1000_init_mac_params_ich8lan(hw);
-	if (rc)
+	if (rc) {
+		dev_err(&adapter->pdev->dev, "e1000_init_mac_params_ich8lan failed with %d\n", rc);
 		return rc;
+	}
 
 	rc = e1000_init_nvm_params_ich8lan(hw);
-	if (rc)
+	if (rc) {
+		dev_err(&adapter->pdev->dev, "e1000_init_nvm_params_ich8lan failed with %d\n", rc);
 		return rc;
+	}
 
 	switch (hw->mac.type) {
 	case e1000_ich8lan:
@@ -1679,8 +1696,10 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
 	default:
 		break;
 	}
-	if (rc)
+	if (rc) {
+		dev_err(&adapter->pdev->dev, "e1000_init_phy_params-* failed with %d (mac.type %d)\n", rc, hw->mac.type);
 		return rc;
+	}
 
 	/* Disable Jumbo Frame support on parts with Intel 10/100 PHY or
 	 * on parts with MACsec enabled in NVM (reflected in CTRL_EXT).
@@ -1743,10 +1762,11 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
 {
 	u32 extcnf_ctrl, timeout = PHY_CFG_TIMEOUT;
 	s32 ret_val = 0;
+	struct e1000_adapter *adapter = hw->adapter;
 
 	if (test_and_set_bit(__E1000_ACCESS_SHARED_RESOURCE,
 			     &hw->adapter->state)) {
-		e_dbg("contention for Phy access\n");
+		e_err("contention for Phy access\n");
 		return -E1000_ERR_PHY;
 	}
 
@@ -1760,7 +1780,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
 	}
 
 	if (!timeout) {
-		e_dbg("SW has already locked the resource.\n");
+		e_err("SW has already locked the resource.\n");
 		ret_val = -E1000_ERR_CONFIG;
 		goto out;
 	}
@@ -1780,7 +1800,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
 	}
 
 	if (!timeout) {
-		e_dbg("Failed to acquire the semaphore, FW or HW has it: FWSM=0x%8.8x EXTCNF_CTRL=0x%8.8x)\n",
+		e_err("Failed to acquire the semaphore, FW or HW has it: FWSM=0x%8.8x EXTCNF_CTRL=0x%8.8x)\n",
 		     er32(FWSM), extcnf_ctrl);
 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
 		ew32(EXTCNF_CTRL, extcnf_ctrl);

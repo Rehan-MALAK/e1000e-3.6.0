@@ -8269,8 +8269,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		e1000e_disable_aspm(pdev, aspm_disable_flag);
 
 	err = pci_enable_device_mem(pdev);
-	if (err)
+	if (err) {
+		dev_err(&pdev->dev, "pci_enable_device_mem failed with %d\n", err);
 		return err;
+	}
 
 	pci_using_dac = 0;
 	err = dma_set_mask_and_coherent(pci_dev_to_dev(pdev), DMA_BIT_MASK(64));
@@ -8290,8 +8292,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	err = pci_request_selected_regions_exclusive(pdev,
 					  pci_select_bars(pdev, IORESOURCE_MEM),
 					  e1000e_driver_name);
-	if (err)
+	if (err) {
+	    dev_err(&pdev->dev, "pci_request_selected_regions_exclusive failed with %d\n", err);
 		goto err_pci_reg;
+    }
 
 	/* AER (Advanced Error Reporting) hooks */
 	pci_enable_pcie_error_reporting(pdev);
@@ -8300,8 +8304,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	err = -ENOMEM;
 	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
-	if (!netdev)
+	if (!netdev) {
+		dev_err(&pdev->dev, "alloc_etherdev failed with %d\n", err);
 		goto err_alloc_etherdev;
+    }
 
 	SET_MODULE_OWNER(netdev);
 	SET_NETDEV_DEV(netdev, pci_dev_to_dev(pdev));
@@ -8356,8 +8362,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	err = -EIO;
 	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
-	if (!adapter->hw.hw_addr)
+	if (!adapter->hw.hw_addr) {
+		dev_err(&pdev->dev, "ioremap(mmio) failed\n");
 		goto err_ioremap;
+	}
 
 	if ((adapter->flags & FLAG_HAS_FLASH) &&
 	    (pci_resource_flags(pdev, 1) & IORESOURCE_MEM) &&
@@ -8365,8 +8373,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		flash_start = pci_resource_start(pdev, 1);
 		flash_len = pci_resource_len(pdev, 1);
 		adapter->hw.flash_address = ioremap(flash_start, flash_len);
-		if (!adapter->hw.flash_address)
+		if (!adapter->hw.flash_address) {
+			dev_err(&pdev->dev, "ioremap(flash) failed\n");
 			goto err_flashmap;
+		}
 	}
 
 	/* Set default EEE advertisement */
@@ -8419,16 +8429,19 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* setup adapter struct */
 	err = e1000_sw_init(adapter);
-	if (err)
+	if (err) {
+		dev_err(&pdev->dev, "e1000e_sw_init failed with %d\n", err);
 		goto err_sw_init;
-
+	}
 	memcpy(&hw->mac.ops, ei->mac_ops, sizeof(hw->mac.ops));
 	memcpy(&hw->nvm.ops, ei->nvm_ops, sizeof(hw->nvm.ops));
 	memcpy(&hw->phy.ops, ei->phy_ops, sizeof(hw->phy.ops));
 
 	err = ei->get_variants(adapter);
-	if (err)
+	if (err) {
+		dev_err(&pdev->dev, "ei->get_variants failed with %d\n", err);
 		goto err_hw_init;
+	}
 
 	hw->mac.ops.get_bus_info(&adapter->hw);
 
@@ -8671,9 +8684,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	strlcpy(netdev->name, "eth%d", sizeof(netdev->name));
 	err = register_netdev(netdev);
-	if (err)
+	if (err) {
+		dev_err(&pdev->dev, "register_netdev failed with %d\n", err);
 		goto err_register;
-
+	}
 	/* carrier off reporting is important to ethtool even BEFORE open */
 	netif_carrier_off(netdev);
 
