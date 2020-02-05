@@ -8550,16 +8550,16 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* systems with ASPM and others may see the checksum fail on the first
 	 * attempt. Let's give it a few tries
 	 */
-	for (i = 0;; i++) {
-		if (e1000_validate_nvm_checksum(&adapter->hw) >= 0)
-			break;
-		if (i == 2) {
-			dev_err(pci_dev_to_dev(pdev),
-				"The NVM Checksum Is Not Valid\n");
-			err = -EIO;
-			goto err_eeprom;
-		}
-	}
+//	for (i = 0;; i++) {
+//		if (e1000_validate_nvm_checksum(&adapter->hw) >= 0)
+//			break;
+//		if (i == 2) {
+//			dev_err(pci_dev_to_dev(pdev),
+//				"The NVM Checksum Is Not Valid\n");
+//			err = -EIO;
+//			goto err_eeprom;
+//		}
+//	}
 
 	e1000_eeprom_checks(adapter);
 
