@@ -367,16 +367,16 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 			goto out;
 		}
 
-		/* Reset the PHY before any access to it.  Doing so, ensures
-		 * that the PHY is in a known good state before we read/write
-		 * PHY registers.  The generic reset is sufficient here,
-		 * because we haven't determined the PHY type yet.
-		 */
-		ret_val = e1000e_phy_hw_reset_generic(hw);
-		if (ret_val) {
-			e_err("e1000e_phy_hw_reset_generic failed with %d\n", ret_val);
-			goto out;
-		}
+//		/* Reset the PHY before any access to it.  Doing so, ensures
+//		 * that the PHY is in a known good state before we read/write
+//		 * PHY registers.  The generic reset is sufficient here,
+//		 * because we haven't determined the PHY type yet.
+//		 */
+//		ret_val = e1000e_phy_hw_reset_generic(hw);
+//		if (ret_val) {
+//			e_err("e1000e_phy_hw_reset_generic failed with %d\n", ret_val);
+//			goto out;
+//		}
 
 		/* On a successful reset, possibly need to wait for the PHY
 		 * to quiesce to an accessible state before returning control
