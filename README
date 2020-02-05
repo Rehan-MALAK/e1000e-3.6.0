@@ -1,3 +1,14 @@
+Please don't use this !!
+
+I am a sad owner of a Lenovo Thinkpad X201 and I have
+commented phy_hw_reset_generic of the NIC driver and
+the NVM checksum test to get my NIC work.
+It's just a hideous hack for people
+desparate like me who needs their LAN connection before a better
+solution appears on the web.
+
+========================================================
+
 e1000e Linux* Base Driver for Intel(R) Network Connection
 
 =========================================================
